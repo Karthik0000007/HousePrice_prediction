@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  property-valuator:
+    build: .
+    container_name: property-valuator
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs
+      - ./artifacts:/app/artifacts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      # Scalability: use `docker compose up --scale property-valuator=N`
+      # behind an nginx/traefik reverse proxy for horizontal scaling.
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
