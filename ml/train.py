@@ -1,4 +1,4 @@
-﻿"""
+"""
 Training Pipeline
 =================
 End-to-end training script that:
@@ -6,7 +6,7 @@ End-to-end training script that:
 2. Applies feature engineering and preprocessing
 3. Splits data into train / validation / test sets
 4. Trains a GradientBoostingRegressor with cross-validation
-5. Evaluates on held-out test set (MAE, RMSE, RÂ²)
+5. Evaluates on held-out test set (MAE, RMSE, R²)
 6. Serializes model artifacts for production inference
 
 Usage:
@@ -14,14 +14,14 @@ Usage:
     python ml/train.py          # direct execution
 
 Preprocessing Decisions (documented):
-    - Binary columns (yes/no) â†’ mapped to 1/0 integers.
-    - furnishingstatus â†’ ordinal-encoded (unfurnished=0, semi=1, furnished=2)
+    - Binary columns (yes/no) → mapped to 1/0 integers.
+    - furnishingstatus → ordinal-encoded (unfurnished=0, semi=1, furnished=2)
       because there is a natural ordering that correlates with price.
     - Engineered features:
-        * area_per_bedroom  â€“ captures space efficiency per sleeping area
-        * area_per_bathroom â€“ captures bathroom-to-space ratio
-        * total_rooms       â€“ bedrooms + bathrooms as overall size proxy
-        * luxury_score      â€“ sum of premium binary amenities
+        * area_per_bedroom  – captures space efficiency per sleeping area
+        * area_per_bathroom – captures bathroom-to-space ratio
+        * total_rooms       – bedrooms + bathrooms as overall size proxy
+        * luxury_score      – sum of premium binary amenities
           (airconditioning + guestroom + basement + prefarea)
     - StandardScaler applied to all numeric features to normalise ranges.
     - Log-transform of target (price) to reduce skew and stabilise variance;
@@ -56,8 +56,10 @@ from ml.config import (
     CATEGORICAL_FEATURES,
     CV_FOLDS,
     DATA_PATH,
+    DRIFT_BASELINE_PATH,
     ENGINEERED_FEATURES,
     FEATURE_NAMES_PATH,
+    FEATURE_REGISTRY_PATH,
     FURNISHING_MAP,
     GRADIENT_BOOSTING_PARAMS,
     LOG_DIR,
@@ -73,7 +75,7 @@ from ml.config import (
 
 warnings.filterwarnings("ignore")
 
-# â”€â”€ Logging â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Logging ──────────────────────────────────────────────────────────────
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -88,12 +90,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# â”€â”€ Data Loading & Audit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Data Loading & Audit ────────────────────────────────────────────────
 def load_and_audit(path: Path) -> pd.DataFrame:
     """Load CSV and run data-quality checks."""
     logger.info("Loading dataset from %s", path)
     df = pd.read_csv(path)
-    logger.info("Shape: %s rows Ã— %s columns", *df.shape)
+    logger.info("Shape: %s rows × %s columns", *df.shape)
 
     # Missing values
     missing = df.isnull().sum()
@@ -122,7 +124,7 @@ def load_and_audit(path: Path) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-# â”€â”€ Feature Engineering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Feature Engineering ─────────────────────────────────────────────────
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     """Create derived features and encode categoricals."""
     df = df.copy()
@@ -149,7 +151,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# â”€â”€ Build Feature Matrix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Build Feature Matrix ────────────────────────────────────────────────
 def build_feature_matrix(df: pd.DataFrame):
     """Return X, y (log-transformed target), and feature names."""
     feature_cols = (
@@ -160,7 +162,7 @@ def build_feature_matrix(df: pd.DataFrame):
     return X, y, feature_cols
 
 
-# â”€â”€ Main Training Pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Main Training Pipeline ──────────────────────────────────────────────
 def train():
     logger.info("=" * 60)
     logger.info("TRAINING PIPELINE STARTED")
@@ -234,6 +236,22 @@ def train():
     logger.info("Model saved  -> %s", MODEL_PATH)
     logger.info("Scaler saved -> %s", SCALER_PATH)
 
+    # 12. Save drift detection baseline (training set, unscaled)
+    from ml.drift import save_baseline
+    save_baseline(X_train, DRIFT_BASELINE_PATH)
+
+    # 13. Register feature version
+    from ml.feature_registry import (
+        FeatureRegistry, build_current_version,
+    )
+    registry = FeatureRegistry(FEATURE_REGISTRY_PATH)
+    fv = build_current_version()
+    try:
+        registry.register_version(fv)
+    except ValueError:
+        # Version already registered (re-run); update model compatibility
+        logger.info("Feature version %s already registered", fv.version)
+
     # Compute residuals for confidence interval estimation
     residuals = y_test - y_test_pred
     residual_std = float(np.std(residuals))
@@ -274,7 +292,7 @@ def _compute_metrics(y_true, y_pred, split_name: str) -> dict:
     rmse_orig = np.sqrt(mean_squared_error(y_true_orig, y_pred_orig))
 
     logger.info("-- %s Metrics --", split_name)
-    logger.info("  RÂ²   : %.4f", r2)
+    logger.info("  R²   : %.4f", r2)
     logger.info("  MAE  : %.2f (original scale)", mae_orig)
     logger.info("  RMSE : %.2f (original scale)", rmse_orig)
     logger.info("  MAE  : %.4f (log scale)", mae_log)

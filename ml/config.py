@@ -1,4 +1,4 @@
-﻿"""
+"""
 ML Pipeline Configuration
 =========================
 Central configuration for feature definitions, model hyperparameters,
@@ -7,7 +7,7 @@ and preprocessing constants used across training and inference.
 
 from pathlib import Path
 
-# -- Paths -----------------------------------------------------------------
+# ── Paths ────────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = PROJECT_ROOT / "data" / "Housing.csv"
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
@@ -17,8 +17,10 @@ MODEL_PATH = ARTIFACTS_DIR / "model.joblib"
 SCALER_PATH = ARTIFACTS_DIR / "scaler.joblib"
 FEATURE_NAMES_PATH = ARTIFACTS_DIR / "feature_names.joblib"
 METADATA_PATH = ARTIFACTS_DIR / "metadata.json"
+DRIFT_BASELINE_PATH = ARTIFACTS_DIR / "drift_baseline.npy"
+FEATURE_REGISTRY_PATH = ARTIFACTS_DIR / "feature_registry.json"
 
-# -- Feature Definitions ---------------------------------------------------
+# ── Feature Definitions ─────────────────────────────────────────────────
 TARGET = "price"
 
 NUMERIC_FEATURES = ["area", "bedrooms", "bathrooms", "stories", "parking"]
@@ -40,7 +42,7 @@ BINARY_MAP = {"yes": 1, "no": 0}
 # Ordinal mapping for furnishing status (unfurnished < semi < furnished)
 FURNISHING_MAP = {"unfurnished": 0, "semi-furnished": 1, "furnished": 2}
 
-# -- Engineered Features ---------------------------------------------------
+# ── Engineered Features ─────────────────────────────────────────────────
 ENGINEERED_FEATURES = [
     "area_per_bedroom",
     "area_per_bathroom",
@@ -48,7 +50,7 @@ ENGINEERED_FEATURES = [
     "luxury_score",
 ]
 
-# -- Model Hyperparameters -------------------------------------------------
+# ── Model Hyperparameters ────────────────────────────────────────────────
 RANDOM_STATE = 42
 TEST_SIZE = 0.15
 VAL_SIZE = 0.15  # of the remaining training set
@@ -64,3 +66,16 @@ GRADIENT_BOOSTING_PARAMS = {
     "max_features": "sqrt",
     "random_state": RANDOM_STATE,
 }
+
+# -- Monitoring & Drift Configuration ------------------------------------
+DRIFT_BUFFER_SIZE = 50          # predictions before triggering drift check
+DRIFT_PSI_BINS = 10             # quantile bins for PSI calculation
+MONITOR_MAX_HISTORY = 10_000    # rolling prediction buffer size
+
+# -- Scalability Configuration --------------------------------------------
+# In production, these are overridden via environment variables.
+# Use gunicorn with multiple uvicorn workers behind a load balancer.
+# Example:  gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
+API_WORKERS = 1                  # single worker for dev; 4+ for prod
+API_HOST = "0.0.0.0"
+API_PORT = 8000
