@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PropertyValuator — Real-Time Property Valuation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --success: #059669;
+    --success-bg: #ecfdf5;
+    --error: #dc2626;
+    --error-bg: #fef2f2;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,.08);
+    --radius: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: -0.02em;
+  }
+  .header .badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: var(--primary);
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Layout ─────────────────────────────────────── */
+  .container {
+    max-width: 960px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  .card-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  /* ── Form Grid ──────────────────────────────────── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+  }
+  .field label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .field input, .field select {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  }
+  .field input.invalid, .field select.invalid {
+    border-color: var(--error);
+  }
+  .field .hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+  }
+  .field .error-msg {
+    font-size: 0.72rem;
+    color: var(--error);
+    margin-top: 0.2rem;
+    display: none;
+  }
+
+  /* ── Buttons ────────────────────────────────────── */
+  .actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  .btn {
+    padding: 0.65rem 1.5rem;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: var(--primary);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+    box-shadow: var(--shadow-lg);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    background: var(--bg);
+  }
+
+  /* ── Spinner ────────────────────────────────────── */
+  .spinner {
+    display: none;
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 0.5rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .btn-primary.loading .spinner { display: inline-block; }
+  .btn-primary.loading .btn-text { opacity: 0.7; }
+
+  /* ── Result Card ────────────────────────────────── */
+  .result-card {
+    display: none;
+    border-left: 4px solid var(--success);
+    background: var(--success-bg);
+  }
+  .result-card.visible { display: block; }
+  .result-card.error {
+    border-left-color: var(--error);
+    background: var(--error-bg);
+  }
+
+  .price-display {
+    text-align: center;
+    padding: 1rem 0;
+  }
+  .price-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.25rem;
+  }
+  .price-value {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--success);
+    letter-spacing: -0.02em;
+  }
+  .confidence-range {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+  }
+  .confidence-bar {
+    margin: 1rem auto;
+    max-width: 400px;
+    height: 6px;
+    background: #d1fae5;
+    border-radius: 3px;
+    position: relative;
+  }
+  .confidence-bar .marker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 14px; height: 14px;
+    background: var(--success);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  }
+  .meta-row {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .error-text {
+    text-align: center;
+    color: var(--error);
+    font-weight: 500;
+  }
+
+  /* ── Footer ─────────────────────────────────────── */
+  .footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  /* ── Responsive ─────────────────────────────────── */
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .container { padding: 0 1rem; }
+    .price-value { font-size: 1.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <h1>PropertyValuator</h1>
+  <span class="badge">Live</span>
+</header>
+
+<!-- Main -->
+<main class="container">
+
+  <!-- Input Form -->
+  <form id="valuationForm" class="card" novalidate>
+    <h2 class="card-title">Property Details</h2>
+    <p class="card-subtitle">Enter property attributes to receive a real-time market valuation.</p>
+
+    <div class="form-grid">
+      <!-- Numeric Fields -->
+      <div class="field">
+        <label for="area">Area (sq ft)</label>
+        <input type="number" id="area" name="area" min="100" max="50000" step="1" placeholder="e.g. 5000" required />
+        <span class="hint">100 – 50,000 sq ft</span>
+        <span class="error-msg" id="area-error">Enter a value between 100 and 50,000</span>
+      </div>
+
+      <div class="field">
+        <label for="bedrooms">Bedrooms</label>
+        <input type="number" id="bedrooms" name="bedrooms" min="1" max="10" step="1" placeholder="e.g. 3" required />
+        <span class="hint">1 – 10</span>
+        <span class="error-msg" id="bedrooms-error">Enter a value between 1 and 10</span>
+      </div>
+
+      <div class="field">
+        <label for="bathrooms">Bathrooms</label>
+        <input type="number" id="bathrooms" name="bathrooms" min="1" max="8" step="1" placeholder="e.g. 2" required />
+        <span class="hint">1 – 8</span>
+        <span class="error-msg" id="bathrooms-error">Enter a value between 1 and 8</span>
+      </div>
+
+      <div class="field">
+        <label for="stories">Stories</label>
+        <input type="number" id="stories" name="stories" min="1" max="5" step="1" placeholder="e.g. 2" required />
+        <span class="hint">1 – 5</span>
+        <span class="error-msg" id="stories-error">Enter a value between 1 and 5</span>
+      </div>
+
+      <div class="field">
+        <label for="parking">Parking Spaces</label>
+        <input type="number" id="parking" name="parking" min="0" max="5" step="1" placeholder="e.g. 2" required />
+        <span class="hint">0 – 5</span>
+        <span class="error-msg" id="parking-error">Enter a value between 0 and 5</span>
+      </div>
+
+      <!-- Binary Fields -->
+      <div class="field">
+        <label for="mainroad">Main Road Access</label>
+        <select id="mainroad" name="mainroad" required>
+          <option value="" disabled selected>Select…</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="guestroom">Guest Room</label>
+        <select id="guestroom" name="guestroom" required>
+          <option value="" disabled selected>Select…</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="basement">Basement</label>
+        <select id="basement" name="basement" required>
+          <option value="" disabled selected>Select…</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="hotwaterheating">Hot Water Heating</label>
+        <select id="hotwaterheating" name="hotwaterheating" required>
+          <option value="" disabled selected>Select…</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="airconditioning">Air Conditioning</label>
+        <select id="airconditioning" name="airconditioning" required>
+          <option value="" disabled selected>Select…</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="prefarea">Preferred Area</label>
+        <select id="prefarea" name="prefarea" required>
+          <option value="" disabled selected>Select…</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="furnishingstatus">Furnishing Status</label>
+        <select id="furnishingstatus" name="furnishingstatus" required>
+          <option value="" disabled selected>Select…</option>
+          <option value="furnished">Furnished</option>
+          <option value="semi-furnished">Semi-Furnished</option>
+          <option value="unfurnished">Unfurnished</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn btn-primary" id="submitBtn">
+        <span class="spinner"></span>
+        <span class="btn-text">Get Valuation</span>
+      </button>
+      <button type="reset" class="btn btn-secondary" id="resetBtn">Clear</button>
+    </div>
+  </form>
+
+  <!-- Result -->
+  <div id="resultCard" class="card result-card">
+    <div id="resultContent"></div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  PropertyValuator &middot; ML-powered property valuation engine &middot; For demonstration purposes
+</footer>
+
+<script>
+(function () {
+  const form = document.getElementById('valuationForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const resultCard = document.getElementById('resultCard');
+  const resultContent = document.getElementById('resultContent');
+
+  const NUMERIC_FIELDS = [
+    { id: 'area', min: 100, max: 50000 },
+    { id: 'bedrooms', min: 1, max: 10 },
+    { id: 'bathrooms', min: 1, max: 8 },
+    { id: 'stories', min: 1, max: 5 },
+    { id: 'parking', min: 0, max: 5 },
+  ];
+
+  function validateForm() {
+    let valid = true;
+
+    // Numeric validation
+    NUMERIC_FIELDS.forEach(f => {
+      const el = document.getElementById(f.id);
+      const errEl = document.getElementById(f.id + '-error');
+      const val = Number(el.value);
+      if (!el.value || val < f.min || val > f.max) {
+        el.classList.add('invalid');
+        errEl.style.display = 'block';
+        valid = false;
+      } else {
+        el.classList.remove('invalid');
+        errEl.style.display = 'none';
+      }
+    });
+
+    // Select validation
+    ['mainroad','guestroom','basement','hotwaterheating','airconditioning','prefarea','furnishingstatus'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el.value) {
+        el.classList.add('invalid');
+        valid = false;
+      } else {
+        el.classList.remove('invalid');
+      }
+    });
+
+    return valid;
+  }
+
+  function formatCurrency(val) {
+    if (val >= 10000000) return '₹' + (val / 10000000).toFixed(2) + ' Cr';
+    if (val >= 100000) return '₹' + (val / 100000).toFixed(2) + ' L';
+    return '₹' + val.toLocaleString('en-IN');
+  }
+
+  function showResult(data) {
+    resultCard.classList.remove('error');
+    resultCard.classList.add('visible');
+    resultContent.innerHTML = `
+      <div class="price-display">
+        <div class="price-label">Estimated Market Value</div>
+        <div class="price-value">${formatCurrency(data.predicted_price)}</div>
+        <div class="confidence-range">
+          90% Confidence: ${formatCurrency(data.confidence_low)} — ${formatCurrency(data.confidence_high)}
+        </div>
+        <div class="confidence-bar"><div class="marker"></div></div>
+        <div class="meta-row">
+          <span>Currency: ${data.currency}</span>
+          <span>Model: ${data.model_version ? data.model_version.slice(0, 10) : 'v1'}</span>
+        </div>
+      </div>
+    `;
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function showError(msg) {
+    resultCard.classList.add('error', 'visible');
+    resultContent.innerHTML = `<p class="error-text">${msg}</p>`;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    resultCard.classList.remove('visible');
+
+    if (!validateForm()) return;
+
+    submitBtn.classList.add('loading');
+    submitBtn.disabled = true;
+
+    const payload = {};
+    NUMERIC_FIELDS.forEach(f => {
+      payload[f.id] = f.id === 'area' ? parseFloat(document.getElementById(f.id).value) : parseInt(document.getElementById(f.id).value);
+    });
+    ['mainroad','guestroom','basement','hotwaterheating','airconditioning','prefarea','furnishingstatus'].forEach(id => {
+      payload[id] = document.getElementById(id).value;
+    });
+
+    try {
+      const res = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Prediction failed');
+      }
+      const data = await res.json();
+      showResult(data);
+    } catch (err) {
+      showError(err.message || 'Network error — is the server running?');
+    } finally {
+      submitBtn.classList.remove('loading');
+      submitBtn.disabled = false;
+    }
+  });
+
+  form.addEventListener('reset', () => {
+    resultCard.classList.remove('visible', 'error');
+    document.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
+    document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+  });
+})();
+</script>
+</body>
+</html>
