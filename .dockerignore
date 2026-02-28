@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+*.md
+notebooks/
+Houseprice_Prediction.ipynb
+Housing.csv
+.env
+logs/
+.vscode/
+*.egg-info/
+dist/
+build/
